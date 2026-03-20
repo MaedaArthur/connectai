@@ -9,10 +9,10 @@ Usa a metodologia **mirror-problem-first**: o problema é vivido e documentado a
 
 ```
 Agente ConnectAI/
-├── main.py             # Ponto de entrada
-├── entrada.json        # JSON de entrada editável (use como template)
-├── .env                # Variáveis de ambiente (não versionar)
-├── .env.example        # Modelo do .env
+├── main.py                 # Ponto de entrada
+├── entrada.example.json    # Template do JSON de entrada
+├── .env                    # Variáveis de ambiente (não versionar)
+├── .env.example            # Modelo do .env
 ├── outputs/            # Histórias salvas (uma pasta por empresa)
 └── src/
     ├── estado.py       # TypedDicts do grafo (EntradaHistoria, EstadoGrafo)
@@ -32,10 +32,11 @@ source .venv/bin/activate
 pip install langgraph langchain-core langchain-groq python-dotenv
 ```
 
-Crie o arquivo `.env` com base em `.env.example`:
+Crie os arquivos locais a partir dos templates:
 
 ```bash
 cp .env.example .env
+cp entrada.example.json entrada.json
 ```
 
 ---
@@ -54,7 +55,7 @@ GROQ_API_KEY=sua_chave_aqui
 
 ### 1. Via arquivo JSON (recomendado)
 
-Edite o [entrada.json](entrada.json) com os dados do cenário e execute:
+Edite o [entrada.json](entrada.json) (criado a partir de `entrada.example.json`) e execute:
 
 ```bash
 python main.py --arquivo entrada.json
