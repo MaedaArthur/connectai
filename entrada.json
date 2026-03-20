@@ -1,0 +1,18 @@
+{
+  "empresa": "TechCorp",
+  "setor": "Tecnologia",
+  "cargo": "Gerente de Produto",
+  "dificuldade": "média",
+  "sintomas": [
+    "equipe desmotivada",
+    "prazo impossível",
+    "orçamento cortado sem aviso"
+  ],
+  "causas_raiz": {
+    "principal": "ausência de processo formal de gestão de mudanças",
+    "secundarias": [
+      "decisões financeiras sem validação de capacidade operacional",
+      "ausência de cultura de documentação de decisões"
+    ]
+  }
+}
