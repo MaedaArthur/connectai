@@ -344,6 +344,7 @@ def _montar_prompt_documento(doc: DocumentoTabela, estado: EstadoAgente2) -> str
         f"Papel na narrativa: {doc['papel']}\n"
         f"Estrutura: {doc['estrutura']}\n"
         f"Inconsistência plantada: {doc['inconsistencia']}\n"
+        f"Documentos relacionados para cruzamento: {doc.get('docs_relacionados', '-')}\n"
         f"\nContexto da história (trecho relevante):\n"
         f"Empresa/caso: {estado['caso']}\n"
         f"Dificuldade: {estado['dificuldade']}\n\n"
@@ -405,7 +406,8 @@ def classificar_todos(estado: EstadoAgente2) -> EstadoAgente2:
 
     try:
         classificacoes = _extrair_json(resposta.content)
-    except Exception:
+    except Exception as e:
+        print(f"  [AVISO] Falha ao parsear classificações em lote: {e}. Usando fallback.")
         classificacoes = {}
 
     for doc in estado["documentos_tabela"]:
