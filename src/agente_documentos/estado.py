@@ -1,4 +1,5 @@
-from typing import List, TypedDict
+import operator
+from typing import Annotated, Dict, List, TypedDict
 
 
 class DocumentoTabela(TypedDict):
@@ -6,8 +7,9 @@ class DocumentoTabela(TypedDict):
     nome: str
     tipo: str
     papel: str
-    campos_criticos: str
-    linhas: str  # número de linhas se planilha, "-" caso contrário
+    estrutura: str
+    inconsistencia: str
+    docs_relacionados: str
 
 
 class ClassificacaoDocumento(TypedDict):
@@ -23,4 +25,4 @@ class EstadoAgente2(TypedDict):
     documentos_tabela: List[DocumentoTabela]
     documentos_json: List[dict]
     indice_atual: int
-    classificacao_atual: ClassificacaoDocumento
+    classificacoes: Dict[str, ClassificacaoDocumento]
