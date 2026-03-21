@@ -1,12 +1,10 @@
 from dotenv import load_dotenv
-from langchain_groq import ChatGroq
+from langchain_anthropic import ChatAnthropic
 
 load_dotenv()
 
-llm = ChatGroq(
-    model="openai/gpt-oss-120b",
+llm = ChatAnthropic(
+    model="claude-haiku-4-5-20251001",
     temperature=1,
     max_tokens=8192,
-    top_p=1,
-    reasoning_effort="medium",
 )

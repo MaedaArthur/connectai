@@ -51,14 +51,23 @@ def criar_docx(caminho: str, doc: dict) -> None:
 
 # ── pdf ───────────────────────────────────────────────────────────────────────
 
+_FONT_REGULAR = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+_FONT_BOLD    = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+_FONT_ITALIC  = "/usr/share/fonts/truetype/liberation/LiberationSans-Italic.ttf"
+
+
 class _PDF(FPDF):
-    pass
+    def __init__(self):
+        super().__init__()
+        self.add_font("LiberationSans", fname=_FONT_REGULAR)
+        self.add_font("LiberationSans", style="B", fname=_FONT_BOLD)
+        self.add_font("LiberationSans", style="I", fname=_FONT_ITALIC)
 
 
 def criar_pdf(caminho: str, doc: dict) -> None:
     pdf = _PDF()
     pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("Helvetica", size=11)
+    pdf.set_font("LiberationSans", size=11)
 
     if "entradas" in doc:
         # modo log: tabela em página única
@@ -66,38 +75,35 @@ def criar_pdf(caminho: str, doc: dict) -> None:
         colunas = doc["colunas"]
         col_w = max(10, (pdf.w - 20) / max(len(colunas), 1))
 
-        pdf.set_font("Helvetica", style="B", size=10)
+        pdf.set_font("LiberationSans", style="B", size=10)
         for col in colunas:
             pdf.cell(col_w, 8, str(col)[:30], border=1)
         pdf.ln()
 
-        pdf.set_font("Helvetica", size=9)
+        pdf.set_font("LiberationSans", size=9)
         for entrada in doc["entradas"]:
             for col in colunas:
                 pdf.cell(col_w, 7, str(entrada.get(col, ""))[:30], border=1)
             pdf.ln()
     else:
-        paginas = doc.get("paginas", [])
-        for i, pagina in enumerate(paginas):
-            pdf.add_page()
-            for secao in pagina.get("secoes", []):
-                pdf.set_font("Helvetica", style="B", size=12)
-                pdf.multi_cell(0, 8, secao["titulo"])
-                pdf.set_font("Helvetica", size=11)
-                pdf.multi_cell(0, 7, secao["conteudo"])
-                pdf.ln(3)
+        secoes = doc.get("secoes", [])
+        pdf.add_page()
+        for secao in secoes:
+            pdf.set_font("LiberationSans", style="B", size=12)
+            pdf.multi_cell(0, 8, secao["titulo"], new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("LiberationSans", size=11)
+            pdf.multi_cell(0, 7, secao["conteudo"], new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(3)
 
-            # rodapé na última página
-            if i == len(paginas) - 1:
-                assinatura = doc.get("assinatura", "")
-                data_emissao = doc.get("data_emissao", "")
-                if assinatura or data_emissao:
-                    pdf.ln(5)
-                    pdf.set_font("Helvetica", style="I", size=10)
-                    if assinatura:
-                        pdf.cell(0, 6, f"Assinatura: {assinatura}", ln=True)
-                    if data_emissao:
-                        pdf.cell(0, 6, f"Data de emissão: {data_emissao}", ln=True)
+        assinatura = doc.get("assinatura", "")
+        data_emissao = doc.get("data_emissao", "")
+        if assinatura or data_emissao:
+            pdf.ln(5)
+            pdf.set_font("LiberationSans", style="I", size=10)
+            if assinatura:
+                pdf.cell(0, 6, f"Assinatura: {assinatura}", new_x="LMARGIN", new_y="NEXT")
+            if data_emissao:
+                pdf.cell(0, 6, f"Data de emissão: {data_emissao}", new_x="LMARGIN", new_y="NEXT")
 
     pdf.output(caminho)
 

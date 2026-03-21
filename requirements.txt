@@ -1,6 +1,6 @@
 langgraph
 langchain-core
-langchain-groq
+langchain-anthropic
 python-dotenv
 pandas
 openpyxl

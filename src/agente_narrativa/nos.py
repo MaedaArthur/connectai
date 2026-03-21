@@ -76,7 +76,7 @@ PROMPT_SISTEMA = (
     "\n"
     "## SEÇÃO 1 — A HISTÓRIA\n"
     "\n"
-    "Narre o dia do protagonista em terceira pessoa. A narrativa deve ter **no mínimo 2.500 palavras**.\n"
+    "Narre o dia do protagonista em terceira pessoa. A narrativa deve ter **no mínimo 1.500 palavras**.\n"
     "\n"
     "### Regras da narrativa:\n"
     "\n"
@@ -350,7 +350,7 @@ PROMPT_SISTEMA = (
     "Comece direto pela narrativa.\n"
     "\n"
     "CHECKLIST ANTES DE RESPONDER:\n"
-    "- A narrativa tem mais de 2.500 palavras? Se não, continue escrevendo.\n"
+    "- A narrativa tem mais de 1.500 palavras? Se não, continue escrevendo.\n"
     "- Há pelo menos uma reunião com falas individuais de cada participante?\n"
     "- O número de documentos está dentro do limite do nível de dificuldade configurado?\n"
     "- A narrativa menciona coluna, linha, aba, página ou valor exato de algum documento? "
@@ -370,6 +370,7 @@ PROMPT_SISTEMA = (
     "(coluna, linha, aba, campo ou página) e valor específico para cada documento?\n"
     "- A narrativa contém alguma lista ou enumeração de documentos com descrição "
     "do que cada um revela? Se sim, remova — isso pertence apenas à Seção 2.\n"
+    "O documento possui todas as seções com a formatação correta? Se não corrija a formatação de acordo com o exemplo"
     )
 
 

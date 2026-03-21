@@ -30,3 +30,12 @@ build/
 .idea/
 *.swp
 *.swo
+
+# Pytest
+.pytest_cache/
+
+# Claude Code
+.claude/
+
+# Superpowers (planos e specs gerados automaticamente)
+docs/superpowers/

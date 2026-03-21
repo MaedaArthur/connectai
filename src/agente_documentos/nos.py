@@ -174,16 +174,11 @@ PROMPT_SISTEMA = (
     "{\n"
     '  "arquivo": "<nome.pdf>",\n'
     '  "tipo": "pdf",\n'
-    '  "categoria": "<categoria>",\n'
-    '  "paginas": [\n'
+    '  "categoria": "<categoria>",\n' 
+    '  "secoes": [\n'
     "    {\n"
-    '      "numero": 1,\n'
-    '      "secoes": [\n'
-    "        {\n"
-    '          "titulo": "<título da seção>",\n'
-    '          "conteudo": "<texto da seção>"\n'
-    "        }\n"
-    "      ]\n"
+    '      "titulo": "<título da seção>",\n'
+    '      "conteudo": "<texto da seção>"\n'
     "    }\n"
     "  ],\n"
     '  "assinatura": "<nome e cargo do signatário>",\n'
