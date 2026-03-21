@@ -1,8 +1,6 @@
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.agente_documentos.nos import classificar_todos
 
 

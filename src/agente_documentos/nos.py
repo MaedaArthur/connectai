@@ -422,7 +422,7 @@ def classificar_todos(estado: EstadoAgente2) -> EstadoAgente2:
 
 # ── Nós do grafo ─────────────────────────────────────────────────────────────
 def extrair_secao2(estado: EstadoAgente2) -> EstadoAgente2:
-    print("\n[NÓ 1/3] Extraindo Seção 2 — Índice de Documentos...")
+    print("\n[NÓ 1/4] Extraindo Seção 2 — Índice de Documentos...")
     with open(estado["caminho_md"], "r", encoding="utf-8") as f:
         conteudo = f.read()
 
