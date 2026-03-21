@@ -1,5 +1,4 @@
-import operator
-from typing import Annotated, Dict, List, TypedDict
+from typing import Dict, List, TypedDict
 
 
 class DocumentoTabela(TypedDict):
