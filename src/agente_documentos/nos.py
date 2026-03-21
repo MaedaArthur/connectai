@@ -369,7 +369,7 @@ def _extrair_json(texto: str) -> dict:
 
 def classificar_todos(estado: EstadoAgente2) -> EstadoAgente2:
     total = len(estado["documentos_tabela"])
-    print(f"\n[NÓ 2/3] Classificando {total} documento(s) em lote...")
+    print(f"\n[NÓ 2/4] Classificando {total} documento(s) em lote...")
 
     historia = estado["historia"]
 
@@ -482,7 +482,7 @@ def gerar_documento(estado: EstadoAgente2) -> EstadoAgente2:
     idx = estado["indice_atual"]
     doc = estado["documentos_tabela"][idx]
 
-    print(f"[NÓ 2/3] Gerando conteúdo: {doc['nome']} ...")
+    print(f"[NÓ 3/4] Gerando conteúdo: {doc['nome']} ...")
 
     mensagens = [
         SystemMessage(content=PROMPT_SISTEMA),
@@ -507,7 +507,7 @@ def gerar_documento(estado: EstadoAgente2) -> EstadoAgente2:
 
 
 def salvar_saida(estado: EstadoAgente2) -> EstadoAgente2:
-    print("\n[NÓ 3/3] Salvando JSON de saída...")
+    print("\n[NÓ 4/4] Salvando JSON de saída...")
     pasta_caso = os.path.dirname(os.path.abspath(estado["caminho_md"]))
 
     os.makedirs(os.path.join(pasta_caso, "documentos", "documentos_gerados"), exist_ok=True)
