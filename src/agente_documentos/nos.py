@@ -317,8 +317,8 @@ PROMPT_SISTEMA = (
 
 PROMPT_CLASSIFICACAO = (
     "Você é um classificador de documentos corporativos.\n"
-    "Dado o nome, tipo e papel de um documento, retorne APENAS um JSON no formato:\n"
-    '{"tipo": "<xlsx|docx|pdf|pptx|eml>", "categoria": "<categoria da taxonomia>"}\n\n'
+    "Dado uma lista de documentos, retorne APENAS um JSON no formato:\n"
+    '{"nome_arquivo.ext": {"tipo": "<xlsx|docx|pdf|pptx|eml>", "categoria": "<categoria da taxonomia>"}, ...}\n\n'
     "Taxonomia de categorias por tipo:\n"
     "xlsx: Financeira | Rastreamento | Capacidade | Log de mudanças | Indicadores\n"
     "docx: Ata de reunião | Procedimento interno | Plano de ação | Formulário | Comunicado interno\n"
@@ -326,8 +326,7 @@ PROMPT_CLASSIFICACAO = (
     "pptx: Status report | Planejamento de lançamento | Comunicação ao cliente | Proposta de escopo\n"
     "eml: Convite de reunião | Aprovação informal | Escalação | Cobrança externa\n"
     "log (pdf ou xlsx): Change Request Log | Decision Log | Bug Report | Risk Register\n\n"
-    "Se o documento for um log estruturado (Change Request Log, Decision Log, Bug Report, Risk Register), "
-    "use o tipo do arquivo (.pdf ou .xlsx) mas indique a categoria correta de log.\n"
+    "Se o documento for um log estruturado, use o tipo do arquivo (.pdf ou .xlsx) mas indique a categoria correta de log.\n"
     "Retorne APENAS o JSON, sem texto adicional."
 )
 
