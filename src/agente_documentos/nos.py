@@ -332,7 +332,7 @@ PROMPT_CLASSIFICACAO = (
 
 
 def _montar_prompt_documento(doc: DocumentoTabela, estado: EstadoAgente2) -> str:
-    classificacao = estado.get("classificacao_atual", {})
+    classificacao = estado.get("classificacoes", {}).get(doc["nome"], {})
     tipo_classificado = classificacao.get("tipo", doc["tipo"])
     categoria_classificada = classificacao.get("categoria", "")
 
@@ -364,6 +364,58 @@ def _extrair_json(texto: str) -> dict:
         if match:
             return json.loads(match.group(0))
         raise
+
+
+def classificar_todos(estado: EstadoAgente2) -> EstadoAgente2:
+    total = len(estado["documentos_tabela"])
+    print(f"\n[NÓ 2/3] Classificando {total} documento(s) em lote...")
+
+    historia = estado["historia"]
+
+    secao1_match = re.search(
+        r"##\s*SE[ÇC][ÃA]O\s*1.*?(?=##\s*SE[ÇC][ÃA]O\s*2|$)",
+        historia,
+        re.DOTALL | re.IGNORECASE,
+    )
+    secao_1 = secao1_match.group(0).strip() if secao1_match else historia
+
+    causa_match = re.search(
+        r"(?:causa\s+raiz\s+principal)[:\s]+(.*?)(?:\n\n|\n#|$)",
+        historia,
+        re.DOTALL | re.IGNORECASE,
+    )
+    causa_raiz = causa_match.group(1).strip() if causa_match else ""
+
+    linhas_docs = "\n".join(
+        f"{i + 1}. Nome: {doc['nome']} | Tipo: {doc['tipo']} "
+        f"| Papel: {doc['papel']} | Estrutura: {doc['estrutura']}"
+        for i, doc in enumerate(estado["documentos_tabela"])
+    )
+
+    mensagens = [
+        SystemMessage(content=PROMPT_CLASSIFICACAO),
+        HumanMessage(content=(
+            f"NARRATIVA (SEÇÃO 1):\n{secao_1}\n\n"
+            f"CAUSA RAIZ PRINCIPAL:\n{causa_raiz}\n\n"
+            f"DOCUMENTOS A CLASSIFICAR:\n{linhas_docs}"
+        )),
+    ]
+
+    resposta = llm.invoke(mensagens)
+
+    try:
+        classificacoes = _extrair_json(resposta.content)
+    except Exception:
+        classificacoes = {}
+
+    for doc in estado["documentos_tabela"]:
+        if doc["nome"] not in classificacoes:
+            classificacoes[doc["nome"]] = {"tipo": doc["tipo"], "categoria": ""}
+
+    for nome, cl in classificacoes.items():
+        print(f"  → {nome}: {cl.get('tipo', '?')} / {cl.get('categoria', '?')}")
+
+    return {**estado, "classificacoes": classificacoes}
 
 
 # ── Nós do grafo ─────────────────────────────────────────────────────────────
@@ -408,6 +460,7 @@ def extrair_secao2(estado: EstadoAgente2) -> EstadoAgente2:
                 "papel": celulas[3],
                 "estrutura": celulas[4],
                 "inconsistencia": celulas[5] if len(celulas) >= 6 else "-",
+                "docs_relacionados": celulas[6] if len(celulas) >= 7 else "-",
             })
 
     print(f"  → {len(documentos_tabela)} documento(s) encontrado(s) na Seção 2.")
@@ -419,62 +472,8 @@ def extrair_secao2(estado: EstadoAgente2) -> EstadoAgente2:
         "documentos_tabela": documentos_tabela,
         "documentos_json": [],
         "indice_atual": 0,
-        "classificacao_atual": {"tipo": "", "categoria": ""},
+        "classificacoes": {},
     }
-
-
-def classificar_documento(estado: EstadoAgente2) -> EstadoAgente2:
-    idx = estado["indice_atual"]
-    doc = estado["documentos_tabela"][idx]
-    total = len(estado["documentos_tabela"])
-
-    print(f"\n[NÓ 2/3] Classificando documento [{idx + 1}/{total}]: {doc['nome']}")
-
-    historia = estado["historia"]
-
-    secao1_match = re.search(
-        r"##\s*SE[ÇC][ÃA]O\s*1.*?(?=##\s*SE[ÇC][ÃA]O\s*2|$)",
-        historia,
-        re.DOTALL | re.IGNORECASE,
-    )
-    secao_1 = secao1_match.group(0).strip() if secao1_match else historia
-
-    causa_match = re.search(
-        r"(?:causa\s+raiz\s+principal)[:\s]+(.*?)(?:\n\n|\n#|$)",
-        historia,
-        re.DOTALL | re.IGNORECASE,
-    )
-    causa_raiz_principal = causa_match.group(1).strip() if causa_match else ""
-
-    mensagens = [
-        SystemMessage(content=PROMPT_CLASSIFICACAO),
-        HumanMessage(content=(f"""
-        NARRATIVA COMPLETA:
-        {secao_1}
-
-        CAUSA RAIZ PRINCIPAL DO CASO:
-        {causa_raiz_principal}
-
-        DOCUMENTO A GERAR:
-        Nome: {doc['nome']}
-        Tipo: {doc['tipo']}
-        Papel na narrativa: {doc['papel']}
-        Estrutura: {doc['estrutura']}
-        Inconsistência plantada: {doc['inconsistencia']}
-        Documentos relacionados para cruzamento: {doc.get('docs_relacionados', '-')}
-        """
-        )),
-    ]
-    resposta = llm.invoke(mensagens)
-
-    try:
-        classificacao = _extrair_json(resposta.content)
-    except Exception:
-        classificacao = {"tipo": "desconhecido", "categoria": "desconhecida"}
-
-    print(f"  → Tipo: {classificacao.get('tipo', '?')} | Categoria: {classificacao.get('categoria', '?')}")
-
-    return {**estado, "classificacao_atual": classificacao}
 
 
 def gerar_documento(estado: EstadoAgente2) -> EstadoAgente2:
