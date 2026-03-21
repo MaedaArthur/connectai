@@ -470,6 +470,7 @@ def extrair_secao2(estado: EstadoAgente2) -> EstadoAgente2:
         "documentos_json": [],
         "indice_atual": 0,
         "classificacoes": {},
+        "contextos_documentos": {},
     }
 
 
