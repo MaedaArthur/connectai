@@ -10,7 +10,7 @@ env/
 entrada.json
 
 # Histórias geradas
-outputs/*/
+outputs/
 
 # Python
 __pycache__/
