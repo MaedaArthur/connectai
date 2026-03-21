@@ -1,8 +1,8 @@
 import argparse
 
-from src.entrada import coletar_entrada_arquivo, coletar_entrada_interativa
-from src.grafo import app
-from src.nos import atualizar_historia, salvar_historia
+from src.agente_narrativa.entrada import coletar_entrada_arquivo, coletar_entrada_interativa
+from src.agente_narrativa.grafo import app
+from src.agente_narrativa.nos import atualizar_historia, salvar_historia
 
 
 def main():

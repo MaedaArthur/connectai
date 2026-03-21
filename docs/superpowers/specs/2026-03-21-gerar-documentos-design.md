@@ -63,12 +63,31 @@ def processar_documentos(caminho_json: str) -> None
 
 ---
 
+## Schemas JSON de entrada (referência)
+
+Os schemas completos são definidos em `src/agente_documentos/nos.py` (prompts do LLM). Resumo das chaves relevantes para cada handler:
+
+| Tipo | Chaves principais |
+|---|---|
+| xlsx (padrão) | `arquivo`, `tipo`, `abas[]{nome, colunas[], linhas[][]}` |
+| xlsx (log) | `arquivo`, `tipo`, `colunas[]`, `entradas[]{col: val}` |
+| docx | `arquivo`, `tipo`, `secoes[]{titulo, conteudo}`, `campos_criticos{chave: valor}` |
+| pdf (padrão) | `arquivo`, `tipo`, `paginas[]{numero, secoes[]{titulo, conteudo}}`, `assinatura`, `data_emissao` |
+| pdf (log) | `arquivo`, `tipo`, `colunas[]`, `entradas[]{col: val}` |
+| pptx | `arquivo`, `tipo`, `slides[]{numero, titulo, conteudo, dados{}}` |
+| eml | `arquivo`, `tipo`, `cabecalho{de, para, assunto, data}`, `corpo`, `anexos[]` |
+
+O nome do arquivo de saída é sempre `doc["arquivo"]`.
+
+---
+
 ## Comportamento por tipo
 
 ### xlsx
 - Usa `pandas` + `openpyxl` (lógica atual preservada)
-- Detecta logs estruturados pelo campo `entradas`: gera uma única aba tabular com as colunas de `colunas` e linhas de `entradas`
-- Caso padrão: itera `abas`, cada aba vira uma sheet com `colunas` e `linhas`
+- Os dois modos são **mutuamente exclusivos**: se o campo `entradas` estiver presente no documento, opera em modo log; caso contrário, opera em modo padrão
+- **Modo log:** gera uma única aba tabular usando `doc["colunas"]` como cabeçalho e cada item de `doc["entradas"]` como linha
+- **Modo padrão:** itera `doc["abas"]`, cada aba vira uma sheet com `colunas` e `linhas`
 
 ### docx
 - Usa `python-docx`
@@ -76,28 +95,30 @@ def processar_documentos(caminho_json: str) -> None
 - `campos_criticos` adicionados como tabela de duas colunas no final do documento (se presentes)
 
 ### pdf
-- Usa `fpdf2`
-- Itera `paginas`: cada página → `add_page()`, seções com título em negrito e corpo em texto normal
-- `assinatura` e `data_emissao` inseridos no rodapé da última página
-- Detecta logs estruturados pelo campo `entradas`: gera tabela com colunas do campo `colunas`
+- Usa `fpdf2`, encoding UTF-8
+- Os dois modos são **mutuamente exclusivos**: se o campo `entradas` estiver presente, opera em modo log; caso contrário, modo padrão
+- **Modo padrão:** itera `doc["paginas"]`: cada página → `add_page()`, seções com título em negrito e corpo em texto normal; `assinatura` e `data_emissao` são campos opcionais do topo de `doc` — se presentes, inseridos no rodapé da última página; se ausentes, rodapé omitido
+- **Modo log:** gera uma única página com tabela; colunas definidas por `doc["colunas"]`; cada item de `doc["entradas"]` é uma linha
 
 ### pptx
 - Usa `python-pptx`
 - Itera `slides`: cada slide → layout "Title and Content", `titulo` no placeholder de título, `conteudo` no corpo
-- `dados` do slide ignorados na renderização visual (estão no JSON para referência de inconsistências)
+- `dados` do slide são descartados silenciosamente (presentes no JSON apenas para referência de inconsistências, sem representação visual)
 
 ### eml
-- Gera arquivo `.txt` (extensão `.eml` mantida no nome do arquivo)
+- Gera arquivo `.txt` com extensão `.eml`, encoding UTF-8
+- Campos mapeados de `doc["cabecalho"]["de/para/assunto/data"]`, `doc["corpo"]`, `doc["anexos"]`
+- Se `doc["anexos"]` for lista vazia ou ausente, a linha "Anexos:" é omitida
 - Formato:
   ```
-  De: ...
-  Para: ...
-  Assunto: ...
-  Data: ...
+  De: <cabecalho.de>
+  Para: <cabecalho.para>
+  Assunto: <cabecalho.assunto>
+  Data: <cabecalho.data>
 
   <corpo>
 
-  Anexos: ...
+  Anexos: <anexo1>, <anexo2>   ← omitido se lista vazia/ausente
   ```
 
 ---
@@ -106,16 +127,19 @@ def processar_documentos(caminho_json: str) -> None
 
 ```python
 def processar_documentos(caminho_json: str) -> None:
-    dados = json.load(...)
+    dados = json.load(...)           # falha com exceção se JSON malformado
     diretorio_saida = <pasta documentos_gerados>
     for doc in dados["documentos"]:
         handler = HANDLERS.get(doc["tipo"])
         if not handler:
-            print(f"Tipo não suportado: {doc['tipo']}")
+            print(f"[AVISO] Tipo não suportado: {doc['tipo']} — pulando '{doc['arquivo']}'")
             continue
         caminho = os.path.join(diretorio_saida, doc["arquivo"])
-        handler(caminho, doc)
-        print(f"Criado: {caminho}")
+        try:
+            handler(caminho, doc)
+            print(f"Criado: {caminho}")
+        except Exception as e:
+            print(f"[ERRO] Falha ao gerar '{doc['arquivo']}': {e}")
 ```
 
 ---
@@ -130,20 +154,25 @@ Saída dos arquivos em `<pasta_do_json>/documentos_gerados/`.
 
 ---
 
-## Paralelização da implementação
+## Implementação
 
-Cada handler será implementado por um agente independente:
+Implementação sequencial em arquivo único `gerar_documentos.py`. A ordem de execução espelha a ordem dos documentos no JSON: para cada documento, `processar_documentos` identifica o tipo via `doc["tipo"]` e despacha para o handler correspondente — se o primeiro documento for `.eml`, `criar_eml` é chamado primeiro; se for `.pdf`, `criar_pdf` é chamado primeiro, e assim por diante.
 
-| Agente | Responsabilidade |
+---
+
+## Remoção de gerar_planilhas.py
+
+O arquivo `gerar_planilhas.py` é **deletado do repositório** via `git rm`. Não há stub de compatibilidade; o substituto direto é `gerar_documentos.py` com a mesma interface de invocação.
+
+---
+
+## Tratamento de erros
+
+| Situação | Comportamento |
 |---|---|
-| Agente 1 | `criar_xlsx` (adaptar lógica atual + suporte a logs) |
-| Agente 2 | `criar_docx` |
-| Agente 3 | `criar_pdf` |
-| Agente 4 | `criar_pptx` |
-| Agente 5 | `criar_eml` |
-| Agente 6 | `processar_documentos` + `HANDLERS` + `main` + deps |
-
-Os agentes trabalham de forma independente; o resultado é consolidado em `gerar_documentos.py`.
+| JSON malformado | Exceção propagada — execução interrompida |
+| Tipo de documento desconhecido | Aviso impresso, documento pulado, execução continua |
+| Falha dentro de um handler | Exceção capturada, erro impresso, próximo documento processado |
 
 ---
 

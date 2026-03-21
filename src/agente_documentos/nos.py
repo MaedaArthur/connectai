@@ -17,7 +17,8 @@ PROMPT_SISTEMA = (
     "2. Classificar o documento em uma das categorias da taxonomia abaixo\n"
     "3. Gerar um JSON realista e detalhado representando o conteúdo fictício do documento\n"
     "\n"
-    "O conteúdo deve ser coerente com o papel do documento na narrativa e os campos críticos fornecidos.\n"
+    "O conteúdo deve ser coerente com a narrativa completa fornecida, o papel do documento "
+    "e os campos críticos do índice.\n"
     "\n"
     "---\n"
     "\n"
@@ -25,25 +26,34 @@ PROMPT_SISTEMA = (
     "\n"
     "Antes de gerar qualquer conteúdo, siga estas regras obrigatórias:\n"
     "\n"
-    "1. **Ancoragem nos dados críticos**: o campo 'Inconsistência plantada' do índice contém "
-    "localização exata e valores específicos. Esses dados DEVEM aparecer exatamente nas células, "
-    "linhas e campos descritos. Os demais dados podem ser inventados, mas não podem contradizer "
+    "1. **Ancoragem na narrativa**: leia a história completa fornecida antes de gerar cada documento. "
+    "O conteúdo, os personagens, as datas e os valores devem ser consistentes com o que acontece na narrativa. "
+    "Se a história menciona que um campo estava vazio, ele deve estar vazio no JSON gerado.\n"
+    "\n"
+    "2. **Ancoragem nos dados críticos**: o campo 'Inconsistência plantada' do índice contém "
+    "localização exata e valores específicos. Esses dados DEVEM aparecer exatamente nas abas, células "
+    "e campos descritos. Os demais dados podem ser inventados, mas não podem contradizer "
     "os dados críticos fornecidos.\n"
     "\n"
-    "2. **Consistência de datas**: todas as datas geradas devem ser consistentes com o ano e período "
-    "citados na história. Nunca use datas de anos diferentes dos documentos da narrativa. "
-    "Se a história se passa em 2024, todos os documentos devem usar datas de 2024.\n"
+    "3. **Estrutura de abas para planilhas**: o campo 'Estrutura' do índice define quantas abas "
+    "a planilha deve ter e quantas linhas cada aba deve conter. Respeite exatamente essa estrutura. "
+    "Nunca gere uma planilha com menos abas do que o especificado.\n"
     "\n"
-    "3. **Consistência de personagens**: os nomes de pessoas que aparecem nos documentos devem ser "
+    "4. **Distribuição de inconsistências por aba**: "
+    "a inconsistência VISÍVEL deve estar na primeira aba. "
+    "a inconsistência CRUZADA deve exigir comparar dados entre a primeira e a segunda aba. "
+    "a inconsistência SISTÊMICA deve exigir comparar uma aba com outro documento do caso — "
+    "use o campo 'Causa raiz principal' e os 'Documentos relacionados' para calibrar essa inconsistência.\n"
+    "\n"
+    "5. **Consistência de datas**: todas as datas geradas devem ser consistentes com o ano e período "
+    "citados na história. Nunca use datas de anos diferentes dos documentos da narrativa.\n"
+    "\n"
+    "6. **Consistência de personagens**: os nomes de pessoas que aparecem nos documentos devem ser "
     "os mesmos citados na história. Nunca invente nomes novos para personagens que já existem na narrativa.\n"
     "\n"
-    "4. **Inconsistências variadas**: cada documento deve ter 2 a 4 inconsistências. "
+    "7. **Inconsistências variadas**: cada documento deve ter 2 a 4 inconsistências. "
     "Nunca repita o mesmo tipo de erro em múltiplas linhas do mesmo documento. "
     "Cada inconsistência deve revelar um aspecto diferente do problema.\n"
-    "\n"
-    "5. **Volume de linhas**: planilhas devem ter o mesmo número de linhas de dados preenchidos de acordo com o mesmo número de linhas contido no índice linhas na seção 2 do documento original. "
-    "Não gere mais de 3 linhas vazias além dos dados — linhas completamente vazias não contribuem "
-    "para a investigação.\n"
     "\n"
     "---\n"
     "\n"
@@ -274,11 +284,12 @@ PROMPT_SISTEMA = (
     "- Retorne APENAS o JSON, sem texto adicional, markdown ou explicações\n"
     "- Todo conteúdo deve ser fictício mas realista e detalhado\n"
     "- Nunca use nomes de empresas ou pessoas reais\n"
-    "- O conteúdo deve ser coerente com o papel na narrativa e os campos críticos fornecidos\n"
+    "- O conteúdo deve ser coerente com a narrativa completa e os campos críticos fornecidos\n"
     "- Gere entre 2 e 4 inconsistências por documento — cada uma revelando um aspecto diferente do problema\n"
     "- Nunca repita o mesmo tipo de inconsistência em múltiplas linhas do mesmo documento\n"
-    "- Para xlsx: gere 1 aba com 5 a 8 colunas e entre 12 e 20 linhas de dados preenchidos. "
-    "Não gere mais de 3 linhas vazias além dos dados\n"
+    "- Para xlsx: respeite exatamente a estrutura de abas definida no campo 'Estrutura' do índice. "
+    "Cada aba deve ter entre 8 e 15 linhas de dados preenchidos. "
+    "Não gere mais de 3 linhas vazias além dos dados por aba.\n"
     "- Para docx: gere 3 a 5 seções com conteúdo substantivo\n"
     "- Para pdf: gere 1 a 3 páginas com seções relevantes\n"
     "- Para pptx: gere 5 a 8 slides com títulos e bullets\n"
@@ -289,14 +300,19 @@ PROMPT_SISTEMA = (
     "\n"
     "# CHECKLIST ANTES DE RESPONDER\n"
     "\n"
+    "- A história completa foi lida antes de gerar o documento?\n"
     "- Os valores do campo 'Inconsistência plantada' do índice estão presentes exatamente "
-    "nas células, linhas e campos descritos?\n"
+    "nas abas, células, linhas e campos descritos?\n"
+    "- Para planilhas: o número de abas e linhas por aba corresponde ao campo 'Estrutura' do índice?\n"
+    "- A inconsistência VISÍVEL está na primeira aba?\n"
+    "- A inconsistência CRUZADA exige comparar dados entre abas da mesma planilha?\n"
+    "- A inconsistência SISTÊMICA exige cruzar com outro documento do caso?\n"
     "- Todas as datas são consistentes com o ano e período da história?\n"
     "- Os nomes dos personagens são os mesmos da narrativa?\n"
     "- As inconsistências são variadas — sem repetição do mesmo tipo de erro?\n"
-    "- A planilha tem o número de linhas de dados preenchidos de acordo com o número de linhas delimitado na seção 2?\n"
     "- O JSON está limpo, sem markdown, sem texto adicional?\n"
 )
+
 
 
 PROMPT_CLASSIFICACAO = (
@@ -317,22 +333,23 @@ PROMPT_CLASSIFICACAO = (
 
 
 def _montar_prompt_documento(doc: DocumentoTabela, estado: EstadoAgente2) -> str:
-    linhas_info = ""
-    if doc.get("linhas", "-") not in ("-", ""):
-        linhas_info = f"Número de linhas da planilha: {doc['linhas']} (gere exatamente esse número de linhas de dados)\n"
+    classificacao = estado.get("classificacao_atual", {})
+    tipo_classificado = classificacao.get("tipo", doc["tipo"])
+    categoria_classificada = classificacao.get("categoria", "")
 
     return (
         f"Gere o JSON para o seguinte documento:\n\n"
         f"Nome: {doc['nome']}\n"
-        f"Tipo informado na narrativa: {doc['tipo']}\n"
+        f"Tipo do arquivo: {tipo_classificado}\n"
+        f"Categoria: {categoria_classificada}\n"
         f"Papel na narrativa: {doc['papel']}\n"
-        f"Dados/Campos críticos: {doc['campos_criticos']}\n"
-        f"{linhas_info}"
+        f"Estrutura: {doc['estrutura']}\n"
+        f"Inconsistência plantada: {doc['inconsistencia']}\n"
         f"\nContexto da história (trecho relevante):\n"
         f"Empresa/caso: {estado['caso']}\n"
         f"Dificuldade: {estado['dificuldade']}\n\n"
-        "Com base nessas informações, identifique o tipo de arquivo e a categoria correta, "
-        "então gere o JSON completo com conteúdo fictício mas coerente com o contexto."
+        f"Use o schema JSON correspondente ao tipo '{tipo_classificado}' e gere o conteúdo "
+        "completo, fictício e coerente com o contexto."
     )
 
 
@@ -390,8 +407,8 @@ def extrair_secao2(estado: EstadoAgente2) -> EstadoAgente2:
                 "nome": celulas[1],
                 "tipo": celulas[2],
                 "papel": celulas[3],
-                "campos_criticos": celulas[4],
-                "linhas": celulas[5] if len(celulas) >= 6 else "-",
+                "estrutura": celulas[4],
+                "inconsistencia": celulas[5] if len(celulas) >= 6 else "-",
             })
 
     print(f"  → {len(documentos_tabela)} documento(s) encontrado(s) na Seção 2.")
@@ -414,13 +431,39 @@ def classificar_documento(estado: EstadoAgente2) -> EstadoAgente2:
 
     print(f"\n[NÓ 2/3] Classificando documento [{idx + 1}/{total}]: {doc['nome']}")
 
+    historia = estado["historia"]
+
+    secao1_match = re.search(
+        r"##\s*SE[ÇC][ÃA]O\s*1.*?(?=##\s*SE[ÇC][ÃA]O\s*2|$)",
+        historia,
+        re.DOTALL | re.IGNORECASE,
+    )
+    secao_1 = secao1_match.group(0).strip() if secao1_match else historia
+
+    causa_match = re.search(
+        r"(?:causa\s+raiz\s+principal)[:\s]+(.*?)(?:\n\n|\n#|$)",
+        historia,
+        re.DOTALL | re.IGNORECASE,
+    )
+    causa_raiz_principal = causa_match.group(1).strip() if causa_match else ""
+
     mensagens = [
         SystemMessage(content=PROMPT_CLASSIFICACAO),
-        HumanMessage(content=(
-            f"Nome: {doc['nome']}\n"
-            f"Tipo informado: {doc['tipo']}\n"
-            f"Papel na narrativa: {doc['papel']}\n"
-            f"Campos críticos: {doc['campos_criticos']}"
+        HumanMessage(content=(f"""
+        NARRATIVA COMPLETA:
+        {secao_1}
+
+        CAUSA RAIZ PRINCIPAL DO CASO:
+        {causa_raiz_principal}
+
+        DOCUMENTO A GERAR:
+        Nome: {doc['nome']}
+        Tipo: {doc['tipo']}
+        Papel na narrativa: {doc['papel']}
+        Estrutura: {doc['estrutura']}
+        Inconsistência plantada: {doc['inconsistencia']}
+        Documentos relacionados para cruzamento: {doc.get('docs_relacionados', '-')}
+        """
         )),
     ]
     resposta = llm.invoke(mensagens)
@@ -465,11 +508,9 @@ def gerar_documento(estado: EstadoAgente2) -> EstadoAgente2:
 
 def salvar_saida(estado: EstadoAgente2) -> EstadoAgente2:
     print("\n[NÓ 3/3] Salvando JSON de saída...")
-    pasta_md = os.path.dirname(os.path.abspath(estado["caminho_md"]))
-    nome_base = os.path.splitext(os.path.basename(estado["caminho_md"]))[0]
+    pasta_caso = os.path.dirname(os.path.abspath(estado["caminho_md"]))
 
-    pasta_saida = os.path.join(pasta_md, nome_base)
-    os.makedirs(pasta_saida, exist_ok=True)
+    os.makedirs(os.path.join(pasta_caso, "documentos", "documentos_gerados"), exist_ok=True)
 
     saida = {
         "caso": estado["caso"],
@@ -477,7 +518,7 @@ def salvar_saida(estado: EstadoAgente2) -> EstadoAgente2:
         "documentos": estado["documentos_json"],
     }
 
-    caminho_json = os.path.join(pasta_saida, "documentos.json")
+    caminho_json = os.path.join(pasta_caso, "documentos", "documentos.json")
     with open(caminho_json, "w", encoding="utf-8") as f:
         json.dump(saida, f, ensure_ascii=False, indent=2)
 

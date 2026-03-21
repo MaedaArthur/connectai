@@ -4,7 +4,7 @@ import re
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from .estado import EstadoGrafo
-from .modelo import llm
+from ..modelo import llm
 
 # ── Prompt do sistema ────────────────────────────────────────────────────────
 PROMPT_SISTEMA = (
@@ -109,12 +109,16 @@ PROMPT_SISTEMA = (
     "\n"
     "### Elementos obrigatórios na narrativa:\n"
     "- Ao menos **uma reunião de equipe transcrita** (com falas dos participantes)\n"
-    "- Ao menos **uma planilha ou relatório citado** de forma concreta — "
-    "o protagonista deve abrir o arquivo, perceber que algo não fecha e reagir a isso. "
+    "- Ao menos **uma planilha citada** de forma concreta — "
+    "o protagonista deve abrir o arquivo, navegar por abas diferentes e perceber "
+    "que algo não fecha em cada camada. "
+    "A planilha deve ter pelo menos três camadas de inconsistência investigável: "
+    "uma visível na primeira leitura, uma que exige cruzar dados entre abas da mesma planilha, "
+    "e uma que só faz sentido comparando com outro documento. "
     "Nunca mencione coluna, linha, página ou valor exato na narrativa. "
     "Esses dados pertencem apenas à Seção 2.\n"
-    "- Ao menos **um documento interno** (memo, comunicado, procedimento) "
-    "que agrava ou contradiz a situação\n"
+    "- Ao menos **um documento interno** (memo, comunicado, procedimento, e-mail, apresentação) "
+    "que agrava ou contradiz a situação — preferencialmente em um formato diferente da planilha já citada\n"
     "- O número total de documentos citados na narrativa deve ser exatamente igual ao limite "
     "definido pelo nível de dificuldade:\n"
     "  - `baixa`: entre 3 e 5 documentos\n"
@@ -132,13 +136,50 @@ PROMPT_SISTEMA = (
     "\n"
     "Após a história, liste todos os documentos citados no seguinte formato:\n"
     "\n"
-    "| # | Nome do Documento | Tipo | Papel na Narrativa | Inconsistência plantada (uso interno — não referenciar na narrativa) | Linhas |\n"
-    "|---|-------------------|------|--------------------|-----------------------|--------|\n"
-    "| 1 | [nome fictício realista] | Planilha / Relatório / Ata / Memo | "
-    "[como ele aparece na história] | [localização exata e valor da inconsistência: coluna, linha, campo ou página] | [número de linhas se Planilha (máximo 15), senão '-'] |\n"
+    "| # | Nome do Documento | Tipo | Papel na Narrativa | Estrutura | Inconsistência plantada (uso interno — não referenciar na narrativa) |\n"
+    "|---|-------------------|------|--------------------|-----------|-----------------------|\n"
+    "| 1 | [nome fictício realista] | xlsx / docx / pdf / pptx / eml | "
+    "[como ele aparece na história] | "
+    "[para xlsx: lista de abas com número de linhas cada; para outros tipos: '-'] | "
+    "[localização exata e valor da inconsistência: coluna, linha, aba, campo, slide ou página] |\n"
     "\n"
-    "Inclua apenas os documentos com papel ativo na narrativa, respeitando o limite de documentos "
-    "definido pelo nível de dificuldade. Esse índice será usado para criar os artefatos reais da simulação.\n"
+    "### Regras do índice:\n"
+    "- Inclua apenas os documentos com papel ativo na narrativa, respeitando o limite de documentos "
+    "definido pelo nível de dificuldade.\n"
+    "- **VARIEDADE DE TIPOS É OBRIGATÓRIA**: maximize a diversidade de formatos. "
+    "Se o nível gerar N documentos, use N tipos distintos sempre que possível. "
+    "Nunca repita um tipo antes de ter usado todos os tipos disponíveis (xlsx, docx, pdf, pptx, eml). "
+    "Exemplo: 4 documentos → 1 xlsx + 1 docx + 1 pptx + 1 eml. "
+    "5 documentos → 1 de cada tipo. "
+    "6 documentos → todos os 5 tipos + 1 repetição do mais adequado à narrativa.\n"
+    "- Para **xlsx**:\n"
+    "  - O campo **Estrutura** deve listar todas as abas no formato: "
+    "`Aba 1 — [nome] ([N] linhas); Aba 2 — [nome] ([N] linhas)`. "
+    "Cada aba deve ter entre 8 e 15 linhas de dados preenchidos.\n"
+    "  - Gere entre **2 e 3 abas** por planilha. "
+    "A primeira aba contém a visão geral — dados que parecem consistentes na primeira leitura. "
+    "A segunda aba contém o detalhamento — onde a inconsistência cruzada entre abas aparece. "
+    "A terceira aba, quando presente, contém histórico ou log — "
+    "com registros ausentes que só fazem sentido ao cruzar com outro documento.\n"
+    "  - O campo **Inconsistência plantada** deve conter obrigatoriamente:\n"
+    "    - **VISÍVEL**: inconsistência detectável na primeira leitura de qualquer aba\n"
+    "    - **CRUZADA**: valor que só revela o problema ao comparar duas abas da mesma planilha\n"
+    "    - **SISTÊMICA**: valor que só faz sentido ao cruzar uma aba com outro documento do índice\n"
+    "- Para **docx**: o campo Estrutura é '-'. "
+    "A inconsistência deve especificar a seção e o campo com o problema "
+    "(ex: 'Seção 3 — campo Responsável: vazio quando deveria ter nome do aprovador').\n"
+    "- Para **pdf**: o campo Estrutura é '-'. "
+    "A inconsistência deve especificar a página e o trecho "
+    "(ex: 'Página 2 — linha \"Orçamento aprovado\": valor R$120k diverge do docx de aprovação que registra R$90k').\n"
+    "- Para **pptx**: o campo Estrutura é '-'. "
+    "A inconsistência deve especificar o número do slide e o dado contraditório "
+    "(ex: 'Slide 4 — cronograma mostra entrega em julho; planilha registra agosto').\n"
+    "- Para **eml**: o campo Estrutura é '-'. "
+    "A inconsistência deve especificar o campo do cabeçalho ou trecho do corpo "
+    "(ex: 'Corpo do e-mail — compromisso verbal de prazo em 15/03 contradiz ata que registra 30/03').\n"
+    "- Para todos os documentos, o campo **Inconsistência plantada** deve conter "
+    "localização exata e valor específico.\n"
+    "- Esse índice será usado para criar os artefatos reais da simulação.\n"
     "\n"
     "---\n"
     "\n"
@@ -159,6 +200,7 @@ PROMPT_SISTEMA = (
     "  - `Causa principal`: raiz sistêmica, só emerge com investigação cruzada\n"
     "- A pergunta socrática nunca deve conter a resposta\n"
     "- Mínimo de 5 sinais, máximo de 15\n"
+    "- No máximo 2 sinais classificados como `Causa principal`\n"
     "\n"
     "### 3B — Gabarito de relevância (Matriz RPU)\n"
     "\n"
@@ -192,7 +234,12 @@ PROMPT_SISTEMA = (
     "mas nunca revelar onde dentro do arquivo ela se encontra. "
     "Descreva o tipo de problema (ex: 'os números não fechavam', "
     "'o campo estava vazio', 'a data não correspondia ao combinado') "
-    "sem mencionar coluna, linha, valor exato ou campo específico.\n"
+    "sem mencionar coluna, linha, aba, valor exato ou campo específico.\n"
+    "- O protagonista nunca lista, enumera ou cataloga os documentos investigados "
+    "com descrições do que cada um revela. "
+    "Se a narrativa precisar mostrar o protagonista organizando informações, "
+    "descreva a ação (ex: 'ele empilhou os arquivos abertos') "
+    "sem nomear o que cada documento contém de problemático.\n"
     "\n"
     "---\n"
     "\n"
@@ -280,15 +327,19 @@ PROMPT_SISTEMA = (
     "\n"
     "## EXEMPLO — ÍNDICE CORRETO (formato esperado)\n"
     "\n"
-    "| # | Nome do Documento | Tipo | Papel na Narrativa | Inconsistência plantada (uso interno) | Linhas |\n"
+    "| # | Nome do Documento | Tipo | Papel na Narrativa | Estrutura | Inconsistência plantada (uso interno) |\n"
     "|---|---|---|---|---|---|\n"
     "| 1 | Consolidado_Final_v3.xlsx | Planilha | Versão do comercial que não fecha com os números internos | "
-    "Coluna F linha 8: valor R$131.000 diverge do valor interno R$148.200; aba 'Revisões' vazia | 12 |\n"
+    "Aba 1 — Resumo (12 linhas); Aba 2 — Detalhamento (10 linhas); Aba 3 — Histórico (8 linhas) | "
+    "VISÍVEL: aba Resumo, coluna 'Status' linha 4 = 'Aprovado' mas data da linha já vencida; "
+    "CRUZADA: aba Resumo coluna 'Total' linha 8 = R$131.000 não bate com soma da aba Detalhamento = R$148.200; "
+    "SISTÊMICA: aba Histórico linha 3 campo 'Aprovação' vazio — decisão tomada mas não registrada, "
+    "contradizendo o Aprovacao_Contrato_Marcos_abril.pdf que exige registro formal |\n"
     "| 2 | Aprovacao_Contrato_Marcos_abril.pdf | Documento interno | "
-    "Aprovação formal que contradiz o desconto solicitado verbalmente | "
-    "Página 1: valor aprovado R$148.200 sem desconto; campo 'Alterações' em branco | - |\n"
-    "| 3 | Ata_Reuniao_Trimestral_abril.docx | Ata | Registra reunião sem ações nem responsáveis definidos | "
-    "Campo 'Responsável' em branco em todas as linhas; campo 'Prazo' preenchido como 'a definir' | - |\n"
+    "Aprovação formal que contradiz o desconto solicitado verbalmente | - | "
+    "Página 1: valor aprovado R$148.200 sem desconto; campo 'Alterações' em branco |\n"
+    "| 3 | Ata_Reuniao_Trimestral_abril.docx | Ata | Registra reunião sem ações nem responsáveis definidos | - | "
+    "Campo 'Responsável' em branco em todas as linhas; campo 'Prazo' preenchido como 'a definir' |\n"
     "\n"
     "---\n"
     "\n"
@@ -302,17 +353,25 @@ PROMPT_SISTEMA = (
     "- A narrativa tem mais de 2.500 palavras? Se não, continue escrevendo.\n"
     "- Há pelo menos uma reunião com falas individuais de cada participante?\n"
     "- O número de documentos está dentro do limite do nível de dificuldade configurado?\n"
-    "- A narrativa menciona coluna, linha, página ou valor exato de algum documento? "
+    "- A narrativa menciona coluna, linha, aba, página ou valor exato de algum documento? "
     "Se sim, remova — esses dados pertencem apenas à Seção 2.\n"
+    "- A narrativa descreve o protagonista navegando por abas diferentes de pelo menos uma planilha?\n"
     "- A causa raiz principal está presente nas entrelinhas mas nunca nomeada diretamente?\n"
     "- A Seção 3B lista apenas o número de evidências permitido para o nível de dificuldade?\n"
     "- Nenhum sinal na Seção 3A usa classificação com parênteses — apenas Sintoma, Causa secundária ou Causa principal?\n"
+    "- A Seção 3A tem no máximo 2 sinais classificados como Causa principal?\n"
     "- A Seção 3B tem a causa principal, as evidências e as causas secundárias preenchidas?\n"
-    "- Planilhas no índice da Seção 2 têm o campo Linhas preenchido com um número entre 10 e 15? Outros documentos têm '-'?\n"
+    "- Planilhas no índice da Seção 2 têm o campo Estrutura preenchido com abas e número de linhas?\n"
+    "- Cada planilha tem 2 a 3 abas com 8 a 15 linhas cada?\n"
+    "- Cada planilha no índice tem inconsistência VISÍVEL, CRUZADA e SISTÊMICA descritas?\n"
     "- Todos os documentos citados na narrativa estão listados na Seção 2?\n"
     "- Há algum documento na Seção 2 que não foi citado na narrativa? Se sim, remova-o.\n"
     "- O campo 'Inconsistência plantada' da Seção 2 contém localização exata "
-    "(coluna, linha, campo ou página) e valor específico para cada documento?\n")
+    "(coluna, linha, aba, campo ou página) e valor específico para cada documento?\n"
+    "- A narrativa contém alguma lista ou enumeração de documentos com descrição "
+    "do que cada um revela? Se sim, remova — isso pertence apenas à Seção 2.\n"
+    )
+
 
 
 def _montar_prompt_usuario(e: dict) -> str:
@@ -379,12 +438,17 @@ def salvar_historia(estado: EstadoGrafo) -> EstadoGrafo:
     os.makedirs(diretorio, exist_ok=True)
 
     existentes = [
-        f for f in os.listdir(diretorio)
-        if re.match(rf"^{re.escape(slug_empresa)}_{re.escape(slug_dificuldade)}_\d+\.md$", f)
+        d for d in os.listdir(diretorio)
+        if os.path.isdir(os.path.join(diretorio, d))
+        and re.match(rf"^{re.escape(slug_empresa)}_{re.escape(slug_dificuldade)}_\d+$", d)
     ]
     proximo_id = len(existentes) + 1
-    nome_arquivo = f"{slug_empresa}_{slug_dificuldade}_{proximo_id:03d}.md"
-    caminho = os.path.join(diretorio, nome_arquivo)
+    empresa_dif_num = f"{slug_empresa}_{slug_dificuldade}_{proximo_id:03d}"
+
+    pasta_caso = os.path.join(diretorio, empresa_dif_num)
+    os.makedirs(os.path.join(pasta_caso, "documentos", "documentos_gerados"), exist_ok=True)
+
+    caminho = os.path.join(pasta_caso, f"{empresa_dif_num}.md")
 
     with open(caminho, "w", encoding="utf-8") as f:
         f.write(estado["historia"])

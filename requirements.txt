@@ -2,3 +2,8 @@ langgraph
 langchain-core
 langchain-groq
 python-dotenv
+pandas
+openpyxl
+python-docx
+python-pptx
+fpdf2
