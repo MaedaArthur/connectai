@@ -11,7 +11,6 @@ entrada.json
 
 # Histórias geradas
 outputs/*/
-TechCorp/
 
 # Python
 __pycache__/
