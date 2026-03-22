@@ -28,15 +28,15 @@ connectai/
 │                   ├── Apresentacao_Status.pptx
 │                   └── Email_Aprovacao_CFO.eml
 └── src/
-    ├── modelo.py                # Configuração compartilhada do LLM (Groq)
+    ├── modelo.py                # Configuração compartilhada do LLM (Anthropic — Claude Haiku)
     ├── agente_narrativa/        # Etapa 1 — agente gerador de histórias
     │   ├── estado.py            # TypedDict EstadoGrafo
     │   ├── nos.py               # Nós: gerar_historia, atualizar_historia, salvar_historia
     │   ├── grafo.py             # Grafo LangGraph do agente de narrativa
     │   └── entrada.py           # Coleta de entrada: arquivo JSON ou interativo
     └── agente_documentos/       # Etapa 2 — agente gerador de documentos
-        ├── estado.py            # TypedDicts: DocumentoTabela, EstadoAgente2
-        ├── nos.py               # Nós: extrair_secao2, classificar_documento, gerar_documento, salvar_saida
+        ├── estado.py            # TypedDicts: DocumentoTabela, ContextoDocumento, EstadoAgente2
+        ├── nos.py               # Nós: extrair_secao2, classificar_todos, enriquecer_documentos, gerar_documento, salvar_saida
         └── grafo.py             # Grafo LangGraph do agente de documentos
 ```
 
@@ -64,7 +64,8 @@ cp entrada.example.json entrada.json
 Edite o `.env`:
 
 ```env
-GROQ_API_KEY=sua_chave_aqui
+ANTHROPIC_API_KEY=sua_chave_aqui
+GROQ_API_KEY=sua_chave_aqui   # reservado para uso futuro
 ```
 
 ---
@@ -119,7 +120,7 @@ Após a geração, o terminal oferece três comandos:
 
 O `.md` contém três seções:
 
-1. **Seção 1 — A história** — narrativa em terceira pessoa (mín. 2.500 palavras)
+1. **Seção 1 — A história** — narrativa em terceira pessoa (mín. 1.500 palavras)
 2. **Seção 2 — Índice de documentos** — tabela com todos os artefatos citados (nome, tipo, papel, estrutura, inconsistência plantada)
 3. **Seção 3 — Mapa de investigação** — uso interno do mentor (sinais por camada + gabarito RPU)
 
@@ -138,13 +139,14 @@ python main_documentos.py outputs/<Empresa>/<Empresa>_<dificuldade>_001/<Empresa
 ### Fluxo interno (grafo LangGraph)
 
 ```
-extrair_secao2 → [loop por documento] → classificar_documento → gerar_documento → salvar_saida
+extrair_secao2 → classificar_todos → enriquecer_documentos → gerar_documento → [loop] → salvar_saida
 ```
 
 1. **extrair_secao2** — parseia a tabela da Seção 2 do `.md`
-2. **classificar_documento** — determina o tipo exato (`.xlsx`, `.docx`, `.pdf`, `.pptx`, `.eml`) e a categoria da taxonomia
-3. **gerar_documento** — gera o JSON do documento com conteúdo ancorado na narrativa, dados críticos e inconsistências plantadas
-4. **salvar_saida** — salva `documentos/documentos.json`
+2. **classificar_todos** — classifica em lote todos os documentos: determina o tipo (`.xlsx`, `.docx`, `.pdf`, `.pptx`, `.eml`) e a categoria da taxonomia
+3. **enriquecer_documentos** — extrai contexto da narrativa para cada documento (personagens, eventos-chave, datas, trecho da inconsistência)
+4. **gerar_documento** — para cada documento, gera o JSON completo com conteúdo ancorado na narrativa e inconsistências plantadas
+5. **salvar_saida** — salva `documentos/documentos.json`
 
 ### Tipos de documento suportados
 
