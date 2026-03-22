@@ -17,7 +17,7 @@ PROMPT_SISTEMA = (
     "2. Classificar o documento em uma das categorias da taxonomia abaixo\n"
     "3. Gerar um JSON realista e detalhado representando o conteúdo fictício do documento\n"
     "\n"
-    "O conteúdo deve ser coerente com a narrativa completa fornecida, o papel do documento "
+    "O conteúdo deve ser coerente com o contexto extraído fornecido, o papel do documento "
     "e os campos críticos do índice.\n"
     "\n"
     "---\n"
@@ -369,8 +369,10 @@ def enriquecer_documentos(estado: EstadoAgente2) -> EstadoAgente2:
     resposta = llm.invoke(mensagens)
 
     try:
-        contextos_raw = _extrair_json(resposta.content)
-    except Exception:
+        parsed = _extrair_json(resposta.content)
+        contextos_raw = parsed if isinstance(parsed, dict) else {}
+    except Exception as exc:
+        print(f"[WARN] Falha ao parsear resposta de enriquecimento: {exc}")
         contextos_raw = {}
 
     contextos: dict[str, ContextoDocumento] = {}
