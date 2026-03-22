@@ -5,7 +5,7 @@ import re
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from ..modelo import llm
-from .estado import ClassificacaoDocumento, DocumentoTabela, EstadoAgente2
+from .estado import ClassificacaoDocumento, ContextoDocumento, DocumentoTabela, EstadoAgente2
 
 # ── Prompt do sistema ────────────────────────────────────────────────────────
 PROMPT_SISTEMA = (
@@ -325,6 +325,68 @@ PROMPT_CLASSIFICACAO = (
     "Se o documento for um log estruturado, use o tipo do arquivo (.pdf ou .xlsx) mas indique a categoria correta de log.\n"
     "Retorne APENAS o JSON, sem texto adicional."
 )
+
+
+# ── Prompt de enriquecimento de contexto ─────────────────────────────────────
+PROMPT_ENRIQUECIMENTO = (
+    "Você é um extrator de contexto narrativo. Dada uma história corporativa e uma lista de documentos, "
+    "sua tarefa é extrair as informações relevantes da narrativa para cada documento.\n\n"
+    "Para cada documento, retorne um objeto JSON com os seguintes campos:\n"
+    "- personagens: lista de strings com nome e papel dos personagens relevantes para este documento "
+    "(ex: [\"Marcos Lima (PM)\", \"Carla Souza (Dev Lead)\"])\n"
+    "- eventos_chave: lista de strings com eventos da narrativa que este documento evidencia ou registra\n"
+    "- datas_criticas: lista de strings com datas e prazos relevantes para este documento "
+    "(ex: [\"31/07/2026 - deadline do release\"])\n"
+    "- contexto_do_documento: parágrafo curto (2-3 frases) explicando o papel deste documento na narrativa\n"
+    "- trecho_inconsistencia: copie LITERALMENTE o texto do campo 'Inconsistência plantada' fornecido "
+    "para este documento, sem alterações\n"
+    "- estrutura: copie LITERALMENTE o campo 'Estrutura' fornecido para este documento, sem alterações\n\n"
+    "Retorne APENAS JSON puro, sem markdown, no formato:\n"
+    "{\"nome_arquivo.ext\": {\"personagens\": [...], \"eventos_chave\": [...], "
+    "\"datas_criticas\": [...], \"contexto_do_documento\": \"...\", "
+    "\"trecho_inconsistencia\": \"...\", \"estrutura\": \"...\"}, ...}"
+)
+
+
+def enriquecer_documentos(estado: EstadoAgente2) -> EstadoAgente2:
+    total = len(estado["documentos_tabela"])
+    print(f"\n[NÓ 2.5/4] Enriquecendo contexto de {total} documento(s)...")
+
+    linhas_docs = "\n".join(
+        f"{i + 1}. Nome: {doc['nome']} | Tipo: {doc['tipo']} "
+        f"| Papel: {doc['papel']} | Estrutura: {doc['estrutura']} "
+        f"| Inconsistência plantada: {doc['inconsistencia']}"
+        for i, doc in enumerate(estado["documentos_tabela"])
+    )
+
+    mensagens = [
+        SystemMessage(content=PROMPT_ENRIQUECIMENTO),
+        HumanMessage(content=(
+            f"História completa:\n{estado['historia']}\n\n"
+            f"Documentos a enriquecer:\n{linhas_docs}"
+        )),
+    ]
+    resposta = llm.invoke(mensagens)
+
+    try:
+        contextos_raw = _extrair_json(resposta.content)
+    except Exception:
+        contextos_raw = {}
+
+    contextos: dict[str, ContextoDocumento] = {}
+    for doc in estado["documentos_tabela"]:
+        nome = doc["nome"]
+        raw = contextos_raw.get(nome, {})
+        contextos[nome] = ContextoDocumento(
+            personagens=raw.get("personagens", []),
+            eventos_chave=raw.get("eventos_chave", []),
+            datas_criticas=raw.get("datas_criticas", []),
+            contexto_do_documento=raw.get("contexto_do_documento", doc["papel"]),
+            trecho_inconsistencia=raw.get("trecho_inconsistencia", doc["inconsistencia"]),
+            estrutura=raw.get("estrutura", doc["estrutura"]),
+        )
+
+    return {**estado, "contextos_documentos": contextos}
 
 
 def _montar_prompt_documento(doc: DocumentoTabela, estado: EstadoAgente2) -> str:
