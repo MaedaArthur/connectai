@@ -394,18 +394,29 @@ def _montar_prompt_documento(doc: DocumentoTabela, estado: EstadoAgente2) -> str
     tipo_classificado = classificacao.get("tipo", doc["tipo"])
     categoria_classificada = classificacao.get("categoria", "")
 
+    ctx = estado.get("contextos_documentos", {}).get(doc["nome"], {})
+    personagens = ", ".join(ctx.get("personagens", [])) or "-"
+    eventos = ", ".join(ctx.get("eventos_chave", [])) or "-"
+    datas = ", ".join(ctx.get("datas_criticas", [])) or "-"
+    contexto_doc = ctx.get("contexto_do_documento", doc["papel"])
+    trecho_inc = ctx.get("trecho_inconsistencia", doc["inconsistencia"])
+    estrutura = ctx.get("estrutura", doc["estrutura"])
+
     return (
         f"Gere o JSON para o seguinte documento:\n\n"
         f"Nome: {doc['nome']}\n"
         f"Tipo do arquivo: {tipo_classificado}\n"
         f"Categoria: {categoria_classificada}\n"
         f"Papel na narrativa: {doc['papel']}\n"
-        f"Estrutura: {doc['estrutura']}\n"
-        f"Inconsistência plantada: {doc['inconsistencia']}\n"
         f"Documentos relacionados para cruzamento: {doc.get('docs_relacionados', '-')}\n"
-        f"\nContexto da história (trecho relevante):\n"
-        f"Empresa/caso: {estado['caso']}\n"
-        f"Dificuldade: {estado['dificuldade']}\n\n"
+        f"\nEstrutura obrigatória: {estrutura}\n"
+        f"\nContexto extraído da história:\n"
+        f"Empresa/caso: {estado['caso']} | Dificuldade: {estado['dificuldade']}\n"
+        f"Personagens envolvidos: {personagens}\n"
+        f"Eventos-chave: {eventos}\n"
+        f"Datas críticas: {datas}\n"
+        f"Contexto do documento: {contexto_doc}\n"
+        f"\nInconsistência a plantar (literal): {trecho_inc}\n\n"
         f"Use o schema JSON correspondente ao tipo '{tipo_classificado}' e gere o conteúdo "
         "completo, fictício e coerente com o contexto."
     )
