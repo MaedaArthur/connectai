@@ -397,7 +397,6 @@ def extrair_secao2(estado: EstadoAgente2) -> EstadoAgente2:
         "historia": conteudo,
         "documentos_tabela": documentos_tabela,
         "documentos_json": [],
-        "indice_atual": 0,
         "contextos_documentos": {},
     }
 
@@ -511,32 +510,33 @@ def _extrair_json(texto: str) -> dict:
 
 
 
-def gerar_documento(estado: EstadoAgente2) -> EstadoAgente2:
-    idx = estado["indice_atual"]
-    doc = estado["documentos_tabela"][idx]
+def gerar_todos_documentos(estado: EstadoAgente2) -> EstadoAgente2:
+    from concurrent.futures import ThreadPoolExecutor
 
-    print(f"[NÓ 3/4] Gerando conteúdo: {doc['nome']} ...")
+    documentos = estado["documentos_tabela"]
+    total = len(documentos)
+    print(f"\n[NÓ 3/4] Gerando {total} documento(s) em paralelo...")
 
-    mensagens = [
-        SystemMessage(content=PROMPT_SISTEMA),
-        HumanMessage(content=_montar_prompt_documento(doc, estado)),
-    ]
-    resposta = llm.invoke(mensagens)
+    def gerar_um(doc: DocumentoTabela) -> dict:
+        print(f"  → gerando {doc['nome']} ...")
+        mensagens = [
+            SystemMessage(content=PROMPT_SISTEMA),
+            HumanMessage(content=_montar_prompt_documento(doc, estado)),
+        ]
+        resposta = llm.invoke(mensagens)
+        try:
+            return _extrair_json(resposta.content)
+        except Exception:
+            return {
+                "arquivo": doc["nome"],
+                "erro": "Falha ao parsear JSON gerado pelo modelo",
+                "raw": resposta.content[:500],
+            }
 
-    try:
-        doc_json = _extrair_json(resposta.content)
-    except Exception:
-        doc_json = {
-            "arquivo": doc["nome"],
-            "erro": "Falha ao parsear JSON gerado pelo modelo",
-            "raw": resposta.content[:500],
-        }
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        resultados = list(executor.map(gerar_um, documentos))
 
-    return {
-        **estado,
-        "documentos_json": list(estado["documentos_json"]) + [doc_json],
-        "indice_atual": idx + 1,
-    }
+    return {**estado, "documentos_json": resultados}
 
 
 def salvar_saida(estado: EstadoAgente2) -> EstadoAgente2:
