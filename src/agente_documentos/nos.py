@@ -388,9 +388,8 @@ def extrair_secao2(estado: EstadoAgente2) -> EstadoAgente2:
                 "docs_relacionados": celulas[6] if len(celulas) >= 7 else "-",
             })
 
-    print(f"{len(documentos_tabela)} serao gerados\n.")
-    for docs in documentos_tabela:
-        print(f"  → gerando {docs['nome']}\n.")
+    print(f"{len(documentos_tabela)} serao gerados\n" + "\n".join(f"  → gerando {d['nome']}" for d in documentos_tabela))
+
     return {
         **estado,
         "caso": caso,
