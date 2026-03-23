@@ -11,11 +11,6 @@ class DocumentoTabela(TypedDict):
     docs_relacionados: str
 
 
-class ClassificacaoDocumento(TypedDict):
-    tipo: str
-    categoria: str
-
-
 class ContextoDocumento(TypedDict):
     personagens: List[str]
     eventos_chave: List[str]
@@ -23,6 +18,8 @@ class ContextoDocumento(TypedDict):
     contexto_do_documento: str
     trecho_inconsistencia: str
     estrutura: str
+    tipo: str
+    categoria: str
 
 
 class EstadoAgente2(TypedDict):
@@ -33,5 +30,4 @@ class EstadoAgente2(TypedDict):
     documentos_tabela: List[DocumentoTabela]
     documentos_json: List[dict]
     indice_atual: int
-    classificacoes: Dict[str, ClassificacaoDocumento]
     contextos_documentos: Dict[str, ContextoDocumento]

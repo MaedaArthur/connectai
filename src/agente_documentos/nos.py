@@ -5,7 +5,7 @@ import re
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from ..modelo import llm
-from .estado import ClassificacaoDocumento, ContextoDocumento, DocumentoTabela, EstadoAgente2
+from .estado import ContextoDocumento, DocumentoTabela, EstadoAgente2
 
 # ── Prompt do sistema ────────────────────────────────────────────────────────
 PROMPT_SISTEMA = (
@@ -311,27 +311,15 @@ PROMPT_SISTEMA = (
 
 
 
-PROMPT_CLASSIFICACAO = (
-    "Você é um classificador de documentos corporativos.\n"
-    "Dado uma lista de documentos, retorne APENAS um JSON no formato:\n"
-    '{"nome_arquivo.ext": {"tipo": "<xlsx|docx|pdf|pptx|eml>", "categoria": "<categoria da taxonomia>"}, ...}\n\n'
-    "Taxonomia de categorias por tipo:\n"
-    "xlsx: Financeira | Rastreamento | Capacidade | Log de mudanças | Indicadores\n"
-    "docx: Ata de reunião | Procedimento interno | Plano de ação | Formulário | Comunicado interno\n"
-    "pdf: Memo executivo | Relatório de progresso | Relatório de auditoria | Contrato ou SLA | Política corporativa\n"
-    "pptx: Status report | Planejamento de lançamento | Comunicação ao cliente | Proposta de escopo\n"
-    "eml: Convite de reunião | Aprovação informal | Escalação | Cobrança externa\n"
-    "log (pdf ou xlsx): Change Request Log | Decision Log | Bug Report | Risk Register\n\n"
-    "Se o documento for um log estruturado, use o tipo do arquivo (.pdf ou .xlsx) mas indique a categoria correta de log.\n"
-    "Retorne APENAS o JSON, sem texto adicional."
-)
-
-
 # ── Prompt de enriquecimento de contexto ─────────────────────────────────────
 PROMPT_ENRIQUECIMENTO = (
-    "Você é um extrator de contexto narrativo. Dada uma história corporativa e uma lista de documentos, "
-    "sua tarefa é extrair as informações relevantes da narrativa para cada documento.\n\n"
+    "Você é um classificador e extrator de contexto narrativo. Dada uma história corporativa e uma lista de documentos, "
+    "sua tarefa é:\n"
+    "1. Classificar cada documento (tipo de arquivo e categoria da taxonomia)\n"
+    "2. Extrair as informações relevantes da narrativa para cada documento\n\n"
     "Para cada documento, retorne um objeto JSON com os seguintes campos:\n"
+    "- tipo: tipo do arquivo inferido ou confirmado (xlsx | docx | pdf | pptx | eml)\n"
+    "- categoria: categoria da taxonomia abaixo que melhor descreve o documento\n"
     "- personagens: lista de strings com nome e papel dos personagens relevantes para este documento "
     "(ex: [\"Marcos Lima (PM)\", \"Carla Souza (Dev Lead)\"])\n"
     "- eventos_chave: lista de strings com eventos da narrativa que este documento evidencia ou registra\n"
@@ -341,155 +329,19 @@ PROMPT_ENRIQUECIMENTO = (
     "- trecho_inconsistencia: copie LITERALMENTE o texto do campo 'Inconsistência plantada' fornecido "
     "para este documento, sem alterações\n"
     "- estrutura: copie LITERALMENTE o campo 'Estrutura' fornecido para este documento, sem alterações\n\n"
+    "Taxonomia de categorias por tipo:\n"
+    "xlsx: Financeira | Rastreamento | Capacidade | Log de mudanças | Indicadores\n"
+    "docx: Ata de reunião | Procedimento interno | Plano de ação | Formulário | Comunicado interno\n"
+    "pdf: Memo executivo | Relatório de progresso | Relatório de auditoria | Contrato ou SLA | Política corporativa\n"
+    "pptx: Status report | Planejamento de lançamento | Comunicação ao cliente | Proposta de escopo\n"
+    "eml: Convite de reunião | Aprovação informal | Escalação | Cobrança externa\n"
+    "log (pdf ou xlsx): Change Request Log | Decision Log | Bug Report | Risk Register\n\n"
+    "Se o documento for um log estruturado, use o tipo do arquivo (.pdf ou .xlsx) mas indique a categoria correta de log.\n\n"
     "Retorne APENAS JSON puro, sem markdown, no formato:\n"
-    "{\"nome_arquivo.ext\": {\"personagens\": [...], \"eventos_chave\": [...], "
+    "{\"nome_arquivo.ext\": {\"tipo\": \"...\", \"categoria\": \"...\", \"personagens\": [...], \"eventos_chave\": [...], "
     "\"datas_criticas\": [...], \"contexto_do_documento\": \"...\", "
     "\"trecho_inconsistencia\": \"...\", \"estrutura\": \"...\"}, ...}"
 )
-
-
-def enriquecer_documentos(estado: EstadoAgente2) -> EstadoAgente2:
-    total = len(estado["documentos_tabela"])
-    print(f"\n[NÓ 2.5/4] Enriquecendo contexto de {total} documento(s)...")
-
-    linhas_docs = "\n".join(
-        f"{i + 1}. Nome: {doc['nome']} | Tipo: {doc['tipo']} "
-        f"| Papel: {doc['papel']} | Estrutura: {doc['estrutura']} "
-        f"| Inconsistência plantada: {doc['inconsistencia']}"
-        for i, doc in enumerate(estado["documentos_tabela"])
-    )
-
-    mensagens = [
-        SystemMessage(content=PROMPT_ENRIQUECIMENTO),
-        HumanMessage(content=(
-            f"História completa:\n{estado['historia']}\n\n"
-            f"Documentos a enriquecer:\n{linhas_docs}"
-        )),
-    ]
-    resposta = llm.invoke(mensagens)
-
-    try:
-        parsed = _extrair_json(resposta.content)
-        contextos_raw = parsed if isinstance(parsed, dict) else {}
-    except Exception as exc:
-        print(f"[WARN] Falha ao parsear resposta de enriquecimento: {exc}")
-        contextos_raw = {}
-
-    contextos: dict[str, ContextoDocumento] = {}
-    for doc in estado["documentos_tabela"]:
-        nome = doc["nome"]
-        raw = contextos_raw.get(nome, {})
-        contextos[nome] = ContextoDocumento(
-            personagens=raw.get("personagens", []),
-            eventos_chave=raw.get("eventos_chave", []),
-            datas_criticas=raw.get("datas_criticas", []),
-            contexto_do_documento=raw.get("contexto_do_documento", doc["papel"]),
-            trecho_inconsistencia=raw.get("trecho_inconsistencia", doc["inconsistencia"]),
-            estrutura=raw.get("estrutura", doc["estrutura"]),
-        )
-
-    return {**estado, "contextos_documentos": contextos}
-
-
-def _montar_prompt_documento(doc: DocumentoTabela, estado: EstadoAgente2) -> str:
-    classificacao = estado.get("classificacoes", {}).get(doc["nome"], {})
-    tipo_classificado = classificacao.get("tipo", doc["tipo"])
-    categoria_classificada = classificacao.get("categoria", "")
-
-    ctx = estado.get("contextos_documentos", {}).get(doc["nome"], {})
-    personagens = ", ".join(ctx.get("personagens", [])) or "-"
-    eventos = ", ".join(ctx.get("eventos_chave", [])) or "-"
-    datas = ", ".join(ctx.get("datas_criticas", [])) or "-"
-    contexto_doc = ctx.get("contexto_do_documento", doc["papel"])
-    trecho_inc = ctx.get("trecho_inconsistencia", doc["inconsistencia"])
-    estrutura = ctx.get("estrutura", doc["estrutura"])
-
-    return (
-        f"Gere o JSON para o seguinte documento:\n\n"
-        f"Nome: {doc['nome']}\n"
-        f"Tipo do arquivo: {tipo_classificado}\n"
-        f"Categoria: {categoria_classificada}\n"
-        f"Papel na narrativa: {doc['papel']}\n"
-        f"Documentos relacionados para cruzamento: {doc.get('docs_relacionados', '-')}\n"
-        f"\nEstrutura obrigatória: {estrutura}\n"
-        f"\nContexto extraído da história:\n"
-        f"Empresa/caso: {estado['caso']} | Dificuldade: {estado['dificuldade']}\n"
-        f"Personagens envolvidos: {personagens}\n"
-        f"Eventos-chave: {eventos}\n"
-        f"Datas críticas: {datas}\n"
-        f"Contexto do documento: {contexto_doc}\n"
-        f"\nInconsistência a plantar (literal): {trecho_inc}\n\n"
-        f"Use o schema JSON correspondente ao tipo '{tipo_classificado}' e gere o conteúdo "
-        "completo, fictício e coerente com o contexto."
-    )
-
-
-def _extrair_json(texto: str) -> dict:
-    texto = texto.strip()
-    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", texto)
-    if match:
-        texto = match.group(1).strip()
-    try:
-        return json.loads(texto)
-    except json.JSONDecodeError:
-        match = re.search(r"\{[\s\S]*\}", texto)
-        if match:
-            return json.loads(match.group(0))
-        raise
-
-
-def classificar_todos(estado: EstadoAgente2) -> EstadoAgente2:
-    total = len(estado["documentos_tabela"])
-    print(f"\n[NÓ 2/4] Classificando {total} documento(s) em lote...")
-
-    historia = estado["historia"]
-
-    secao1_match = re.search(
-        r"##\s*SE[ÇC][ÃA]O\s*1.*?(?=##\s*SE[ÇC][ÃA]O\s*2|$)",
-        historia,
-        re.DOTALL | re.IGNORECASE,
-    )
-    secao_1 = secao1_match.group(0).strip() if secao1_match else historia
-
-    causa_match = re.search(
-        r"(?:causa\s+raiz\s+principal)[:\s]+(.*?)(?:\n\n|\n#|$)",
-        historia,
-        re.DOTALL | re.IGNORECASE,
-    )
-    causa_raiz = causa_match.group(1).strip() if causa_match else ""
-
-    linhas_docs = "\n".join(
-        f"{i + 1}. Nome: {doc['nome']} | Tipo: {doc['tipo']} "
-        f"| Papel: {doc['papel']} | Estrutura: {doc['estrutura']}"
-        for i, doc in enumerate(estado["documentos_tabela"])
-    )
-
-    mensagens = [
-        SystemMessage(content=PROMPT_CLASSIFICACAO),
-        HumanMessage(content=(
-            f"NARRATIVA (SEÇÃO 1):\n{secao_1}\n\n"
-            f"CAUSA RAIZ PRINCIPAL:\n{causa_raiz}\n\n"
-            f"DOCUMENTOS A CLASSIFICAR:\n{linhas_docs}"
-        )),
-    ]
-
-    resposta = llm.invoke(mensagens)
-
-    try:
-        classificacoes = _extrair_json(resposta.content)
-    except Exception as e:
-        print(f"  [AVISO] Falha ao parsear classificações em lote: {e}. Usando fallback.")
-        classificacoes = {}
-
-    for doc in estado["documentos_tabela"]:
-        if doc["nome"] not in classificacoes:
-            classificacoes[doc["nome"]] = {"tipo": doc["tipo"], "categoria": ""}
-
-    for nome, cl in classificacoes.items():
-        print(f"  → {nome}: {cl.get('tipo', '?')} / {cl.get('categoria', '?')}")
-
-    return {**estado, "classificacoes": classificacoes}
-
 
 # ── Nós do grafo ─────────────────────────────────────────────────────────────
 def extrair_secao2(estado: EstadoAgente2) -> EstadoAgente2:
@@ -536,7 +388,9 @@ def extrair_secao2(estado: EstadoAgente2) -> EstadoAgente2:
                 "docs_relacionados": celulas[6] if len(celulas) >= 7 else "-",
             })
 
-    print(f"  → {len(documentos_tabela)} documento(s) encontrado(s) na Seção 2.")
+    print(f"{len(documentos_tabela)} serao gerados\n.")
+    for docs in documentos_tabela:
+        print(f"  → gerando {docs['nome']}\n.")
     return {
         **estado,
         "caso": caso,
@@ -545,9 +399,117 @@ def extrair_secao2(estado: EstadoAgente2) -> EstadoAgente2:
         "documentos_tabela": documentos_tabela,
         "documentos_json": [],
         "indice_atual": 0,
-        "classificacoes": {},
         "contextos_documentos": {},
     }
+
+def enriquecer_documentos(estado: EstadoAgente2) -> EstadoAgente2:
+    total = len(estado["documentos_tabela"])
+    print(f"\n[NÓ 2/4] Retirando contexto de {total} documento(s)...")
+
+    historia = estado["historia"]
+
+    secao1_match = re.search(
+        r"##\s*SE[ÇC][ÃA]O\s*1.*?(?=##\s*SE[ÇC][ÃA]O\s*2|$)",
+        historia,
+        re.DOTALL | re.IGNORECASE,
+    )
+    secao_1 = secao1_match.group(0).strip() if secao1_match else historia
+
+    causa_match = re.search(
+        r"(?:causa\s+raiz\s+principal)[:\s]+(.*?)(?:\n\n|\n#|$)",
+        historia,
+        re.DOTALL | re.IGNORECASE,
+    )
+    causa_raiz = causa_match.group(1).strip() if causa_match else ""
+    
+    linhas_docs = "\n".join(
+        f"{i + 1}. Nome: {doc['nome']} | Tipo: {doc['tipo']} "
+        f"| Papel: {doc['papel']} | Estrutura: {doc['estrutura']} "
+        f"| Inconsistência plantada: {doc['inconsistencia']}"
+        for i, doc in enumerate(estado["documentos_tabela"])
+    )
+
+    mensagens = [
+        SystemMessage(content=PROMPT_ENRIQUECIMENTO),
+        HumanMessage(content=(
+            f"NARRATIVA (SEÇÃO 1):\n{secao_1}\n\n"
+            f"CAUSA RAIZ PRINCIPAL:\n{causa_raiz}\n\n"
+            f"DOCUMENTOS A CLASSIFICAR:\n{linhas_docs}"
+        )),
+    ]
+    resposta = llm.invoke(mensagens)
+
+    try:
+        parsed = _extrair_json(resposta.content)
+        contextos_raw = parsed if isinstance(parsed, dict) else {}
+    except Exception as exc:
+        print(f"[WARN] Falha ao parsear resposta de enriquecimento: {exc}")
+        contextos_raw = {}
+
+    contextos: dict[str, ContextoDocumento] = {}
+    for doc in estado["documentos_tabela"]:
+        nome = doc["nome"]
+        raw = contextos_raw.get(nome, {})
+        contextos[nome] = ContextoDocumento(
+            personagens=raw.get("personagens", []),
+            eventos_chave=raw.get("eventos_chave", []),
+            datas_criticas=raw.get("datas_criticas", []),
+            contexto_do_documento=raw.get("contexto_do_documento", doc["papel"]),
+            trecho_inconsistencia=raw.get("trecho_inconsistencia", doc["inconsistencia"]),
+            estrutura=raw.get("estrutura", doc["estrutura"]),
+            tipo=raw.get("tipo", doc['tipo']),
+            categoria=raw.get("categoria", ""),
+        )
+
+    return {**estado, "contextos_documentos": contextos}
+
+
+def _montar_prompt_documento(doc: DocumentoTabela, estado: EstadoAgente2) -> str:
+    ctx = estado.get("contextos_documentos", {}).get(doc["nome"], {})
+    personagens = ", ".join(ctx.get("personagens", [])) or "-"
+    tipo = ctx.get("tipo", doc['tipo'])
+    categoria = ctx.get("categoria", "")
+    eventos = ", ".join(ctx.get("eventos_chave", [])) or "-"
+    datas = ", ".join(ctx.get("datas_criticas", [])) or "-"
+    contexto_doc = ctx.get("contexto_do_documento", doc["papel"])
+    trecho_inc = ctx.get("trecho_inconsistencia", doc["inconsistencia"])
+    estrutura = ctx.get("estrutura", doc["estrutura"])
+
+
+    return (
+        f"Gere o JSON para o seguinte documento:\n\n"
+        f"Nome: {doc['nome']}\n"
+        f"Tipo do arquivo: {tipo}\n"
+        f"Categoria: {categoria}\n"
+        f"Papel na narrativa: {doc['papel']}\n"
+        f"Documentos relacionados para cruzamento: {doc.get('docs_relacionados', '-')}\n"
+        f"\nEstrutura obrigatória: {estrutura}\n"
+        f"\nContexto extraído da história:\n"
+        f"Empresa/caso: {estado['caso']} | Dificuldade: {estado['dificuldade']}\n"
+        f"Personagens envolvidos: {personagens}\n"
+        f"Eventos-chave: {eventos}\n"
+        f"Datas críticas: {datas}\n"
+        f"Contexto do documento: {contexto_doc}\n"
+        f"\nInconsistência a plantar (literal): {trecho_inc}\n\n"
+        f"Use o schema JSON correspondente ao tipo '{tipo}' e gere o conteúdo "
+        "completo, fictício e coerente com o contexto."
+    )
+
+
+def _extrair_json(texto: str) -> dict:
+    texto = texto.strip()
+    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", texto)
+    if match:
+        texto = match.group(1).strip()
+    try:
+        return json.loads(texto)
+    except json.JSONDecodeError:
+        match = re.search(r"\{[\s\S]*\}", texto)
+        if match:
+            return json.loads(match.group(0))
+        raise
+
+
 
 
 def gerar_documento(estado: EstadoAgente2) -> EstadoAgente2:
