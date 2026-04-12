@@ -84,6 +84,21 @@ Mantenha rigorosamente a metodologia mirror-problem-first e todas as regras abso
 Retorne apenas a história revisada no mesmo formato Markdown.
 ```
 
+## Few-shot examples in the system prompt
+
+The system prompt includes four inline few-shot examples that calibrate tone and format. These are significant and must be preserved or replaced during migration:
+
+1. **Example 1 — Opening with a concrete document** — shows how the protagonist interacts with a file without naming specific cells or values
+2. **Example 2 — Robust dialogue** — shows how characters reveal symptoms through conflict, not exposition
+3. **Example 3 — Transcribed meeting** — shows the format and density expected for team meeting scenes
+4. **Example — Correct index format** — shows a complete Section 2 table with all three inconsistency layers (VISÍVEL, CRUZADA, SISTÊMICA) filled in
+
+These examples are the primary mechanism for controlling output tone. Stripping them degrades story quality significantly.
+
+## User prompt format
+
+The system prompt states that input will be a JSON block. The actual user prompt assembled by `_montar_prompt_usuario` sends **plain text** in the format shown above, not a JSON object. The LLM handles both because the field names are consistent, but the mismatch is a minor internal inconsistency.
+
 ## Migration recommendation
 
 Treat the current prompt as a behavioral spec, not just a string constant. The migration should preserve:
@@ -92,3 +107,4 @@ Treat the current prompt as a behavioral spec, not just a string constant. The m
 - document-count behavior by difficulty
 - the prohibition on naming the root cause in the narrative
 - the distinction between narrative-only clues and exact inconsistency details reserved for Section 2
+- the four few-shot examples (or equivalently strong replacements)

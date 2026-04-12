@@ -62,7 +62,15 @@ Each generated document object is expected to include at least:
 
 - `arquivo`
 - `tipo`
+- `categoria`
+- `inconsistencias[]` — list of objects describing each planted inconsistency (always present across all types)
 - schema-specific content matching the selected type
+
+On parse failure the object is `{"arquivo": "...", "erro": "...", "raw": "<first 500 chars>"}` instead.
+
+### `indice_atual` field
+
+`main_documentos.py` seeds `"indice_atual": 0` in the initial state. This field is **not** declared in `EstadoAgente2` and is not read by any node. It is a dead field left over from an earlier design. Migration can drop it safely.
 
 ## Behavioral details worth preserving
 

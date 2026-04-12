@@ -36,7 +36,7 @@ connectai/
     │   └── entrada.py           # Coleta de entrada: arquivo JSON ou interativo
     └── agente_documentos/       # Etapa 2 — agente gerador de documentos
         ├── estado.py            # TypedDicts: DocumentoTabela, ContextoDocumento, EstadoAgente2
-        ├── nos.py               # Nós: extrair_secao2, classificar_todos, enriquecer_documentos, gerar_documento, salvar_saida
+        ├── nos.py               # Nós: extrair_secao2, enriquecer_documentos, gerar_todos_documentos, salvar_saida
         └── grafo.py             # Grafo LangGraph do agente de documentos
 ```
 
@@ -139,14 +139,17 @@ python main_documentos.py outputs/<Empresa>/<Empresa>_<dificuldade>_001/<Empresa
 ### Fluxo interno (grafo LangGraph)
 
 ```
-extrair_secao2 → classificar_todos → enriquecer_documentos → gerar_documento → [loop] → salvar_saida
+extrair_secao2
+  → enriquecer_documentos   (se houver documentos na tabela)
+  → salvar_saida            (direto, se a tabela estiver vazia)
+
+enriquecer_documentos → gerar_todos_documentos → salvar_saida
 ```
 
-1. **extrair_secao2** — parseia a tabela da Seção 2 do `.md`
-2. **classificar_todos** — classifica em lote todos os documentos: determina o tipo (`.xlsx`, `.docx`, `.pdf`, `.pptx`, `.eml`) e a categoria da taxonomia
-3. **enriquecer_documentos** — extrai contexto da narrativa para cada documento (personagens, eventos-chave, datas, trecho da inconsistência)
-4. **gerar_documento** — para cada documento, gera o JSON completo com conteúdo ancorado na narrativa e inconsistências plantadas
-5. **salvar_saida** — salva `documentos/documentos.json`
+1. **extrair_secao2** — parseia o nome do arquivo para extrair `caso` e `dificuldade`; extrai a Seção 2 via regex; popula `documentos_tabela` a partir da tabela Markdown
+2. **enriquecer_documentos** — classifica tipo e categoria de todos os documentos em lote e extrai contexto narrativo (personagens, eventos-chave, datas, trecho da inconsistência) em uma única chamada ao LLM; resultado salvo em `contextos_documentos`
+3. **gerar_todos_documentos** — para cada documento, gera o JSON completo com conteúdo ancorado na narrativa e inconsistências plantadas; execução paralela via `ThreadPoolExecutor(max_workers=5)`; falhas de parse produzem objeto `{arquivo, erro, raw}` sem abortar o run
+4. **salvar_saida** — salva `documentos/documentos.json` e cria o diretório `documentos/documentos_gerados/`
 
 ### Tipos de documento suportados
 
@@ -154,7 +157,7 @@ extrair_secao2 → classificar_todos → enriquecer_documentos → gerar_documen
 |---|---|
 | `xlsx` | `abas[]{nome, colunas, linhas}` ou `colunas + entradas[]` (log) |
 | `docx` | `secoes[]{titulo, conteudo}`, `campos_criticos{}` |
-| `pdf` | `paginas[]{secoes[]}`, `assinatura`, `data_emissao` |
+| `pdf` | `secoes[]`, `assinatura`, `data_emissao` |
 | `pptx` | `slides[]{numero, titulo, conteudo, dados{}}` |
 | `eml` | `cabecalho{de, para, assunto, data}`, `corpo`, `anexos[]` |
 

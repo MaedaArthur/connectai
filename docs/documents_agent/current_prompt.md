@@ -61,10 +61,13 @@ The prompt enforces:
 
 ## Important migration note
 
-The prompt is doing three jobs at once:
+Classification was previously a separate `classificar_todos` node. It no longer exists. Classification (type inference + category assignment) was merged into the enrichment prompt. The current architecture does three jobs in two LLM calls:
 
-- classification
-- context extraction
-- content generation
+- **Enrichment prompt**: classification + context extraction (one batch call for all documents)
+- **Generation prompt**: content generation (one call per document, parallelized)
 
 The new architecture should preserve those outputs even if they move into separate typed steps or tools.
+
+## Enrichment fallback behavior
+
+If the enrichment LLM call fails to parse, all `contextos_documentos` entries fall back to the raw table values from Section 2. The generation step still runs — it just loses narrative anchoring for those documents.

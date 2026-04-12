@@ -20,10 +20,9 @@
 
 ## Notable code/documentation mismatches
 
-- `README.md` describes a `classificar_todos` node that no longer exists.
-- `README.md` describes a per-document graph loop that no longer exists; generation is now parallelized inside one node.
-- The prompt shows one PDF-style schema example, but the renderer expects top-level `secoes[]`, not `paginas[]`.
-- PPTX JSON may include `dados`, but the renderer silently discards it.
+- The prompt schema example for PDF uses top-level `secoes[]` — the renderer expects exactly that shape. A previous version of the docs showed `paginas[]{secoes[]}` which was wrong and has been corrected.
+- PPTX JSON may include `dados` per slide, but the renderer silently discards it. The prompt still generates `dados` — migration can keep or remove it without affecting rendered output.
+- `main_documentos.py` seeds `"indice_atual": 0` in the initial state, but `EstadoAgente2` does not declare this field and no node reads it. Safe to remove.
 
 ## Safe improvements during migration
 

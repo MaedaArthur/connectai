@@ -24,10 +24,12 @@ Current input shape from `src/agente_narrativa/estado.py`:
 {
   "entrada": EntradaHistoria,
   "historia": str,
-  "historico": list[messages],
+  "historico": Annotated[List, add_messages],  # LangGraph reducer — messages are appended, not replaced
   "feedback": str,
 }
 ```
+
+The `historico` field uses LangGraph's `add_messages` reducer. Each `atualizar_historia` call appends the new exchange to the list rather than overwriting it. This means the full conversation history accumulates in state across revisions.
 
 ## Output contract
 
@@ -46,6 +48,19 @@ The main output is a Markdown document containing all three sections. The downst
 - The output filename format is significant because the documents agent later derives:
   - `caso`
   - `dificuldade`
+
+## `causas_raiz` shape
+
+Although `causas_raiz` is typed as `dict` in `EntradaHistoria`, the expected shape is:
+
+```python
+{
+  "principal": str,
+  "secundarias": List[str],
+}
+```
+
+The user prompt builder (`_montar_prompt_usuario`) reads `causas_raiz["principal"]` and `causas_raiz["secundarias"]` directly; missing either key will raise a `KeyError` at runtime.
 
 ## Hidden coupling with the documents agent
 

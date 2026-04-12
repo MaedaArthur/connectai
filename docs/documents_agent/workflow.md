@@ -13,13 +13,20 @@ Current CLI flow in `main_documentos.py`:
 Defined in `src/agente_documentos/grafo.py`:
 
 ```text
+START
+  -> extrair_secao2
+
 extrair_secao2
-  -> enriquecer_documentos     if any rows were parsed
-  -> salvar_saida              if no rows were parsed
+  -> enriquecer_documentos     (conditional: documentos_tabela is non-empty)
+  -> salvar_saida              (conditional: documentos_tabela is empty)
 
 enriquecer_documentos
   -> gerar_todos_documentos
+
+gerar_todos_documentos
   -> salvar_saida
+
+salvar_saida
   -> END
 ```
 
